@@ -2,6 +2,8 @@ extends Reference
 
 const Cell = preload("res://scripts/bigrock_pt/cell.gd");
 const Vertex = Cell.Vertex;
+const EllipsoidTool = preload("res://scripts/bigrock_pt/ellipsoid_tool.gd");
+const EmplaceAction = preload("res://scripts/bigrock_pt/emplace_action.gd");
 
 static func interpolate_vertices(vert1, vert2, t):
 	var ret = Vertex.new();
@@ -97,3 +99,50 @@ static func try_undivide(cell, recursive=false):
 	
 	if collapse:
 		undivide_cell(cell);
+
+static func get_tool_aabb(t : Spatial) -> AABB:
+	var gverts = Cell.Vertex.GRID_VERTS;
+	var minpos = t.global_transform.xform(gverts[0]);
+	var maxpos = t.global_transform.xform(gverts[0]);
+	
+	for i in range(1, 8):
+		var pos = t.transform.xform(gverts[i]);
+		if pos.x < minpos.x:
+			minpos.x = pos.x;
+		elif pos.x > maxpos.x:
+			maxpos.x = pos.x;
+		
+		if pos.y < minpos.y:
+			minpos.y = pos.y;
+		elif pos.y > maxpos.y:
+			maxpos.y = pos.y;
+		
+		if pos.z < minpos.z:
+			minpos.z = pos.z;
+		elif pos.z > maxpos.z:
+			maxpos.z = pos.z;
+	
+	var ret = AABB();
+	ret.position = minpos;
+	ret.end = maxpos;
+	print("%s = %s" % [t.scale, ret.size]);
+	return ret;
+
+static func get_cell_aabb(cell) -> AABB:
+	var ret = AABB();
+	ret.position = cell.vertices[0].position;
+	ret.end = cell.vertices[7].position;
+	return ret;
+
+static func cell_apply_tool(cell, t, a):
+	for vertex in cell.vertices:
+		a.update(t, vertex);
+
+	if cell.is_leaf() and cell.subdiv_level < a.max_subdiv_level:
+		subdivide_cell(cell);
+	
+	if not cell.is_leaf():
+		var tool_aabb = get_tool_aabb(t);
+		for child in cell.children:
+			if tool_aabb.intersects(get_cell_aabb(child)):
+				cell_apply_tool(child, t, a);

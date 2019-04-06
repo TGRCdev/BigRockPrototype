@@ -90,13 +90,13 @@ func _undivide_rec(cell):
 		for child in cell.children:
 			_undivide_rec(child);"
 
-[sub_resource type="GDScript" id=10]
+[sub_resource type="GDScript" id=4]
 script/source = "extends Spatial
 
 func _process(delta):
 	self.rotation_degrees.y += 45 * delta;"
 
-[sub_resource type="GDScript" id=4]
+[sub_resource type="GDScript" id=5]
 script/source = "extends Label
 
 var start;
@@ -107,7 +107,7 @@ func _ready():
 func _process(delta):
 	self.text = \"Static Mem: %d KB\" % [float(OS.get_static_memory_usage() - start) / 1000.0];"
 
-[sub_resource type="GDScript" id=5]
+[sub_resource type="GDScript" id=6]
 script/source = "extends Button
 
 export (NodePath) var cell_path;
@@ -116,7 +116,7 @@ func _pressed():
 	if cell_path and get_node(cell_path):
 		get_node(cell_path).subdivide();"
 
-[sub_resource type="GDScript" id=6]
+[sub_resource type="GDScript" id=7]
 script/source = "extends Button
 
 export (NodePath) var cell_path;
@@ -125,7 +125,7 @@ func _pressed():
 	if cell_path and get_node(cell_path):
 		get_node(cell_path).undivide();"
 
-[sub_resource type="GDScript" id=7]
+[sub_resource type="GDScript" id=8]
 script/source = "extends CheckButton
 
 func _toggled(value):
@@ -140,13 +140,13 @@ func _ready():
 func _val_changed(value, index):
 	$MeshInstance.transform.origin[index] = value;"
 
-[sub_resource type="SpatialMaterial" id=8]
+[sub_resource type="SpatialMaterial" id=9]
 flags_transparent = true
 flags_unshaded = true
 albedo_color = Color( 0, 0, 1, 0.654902 )
 
-[sub_resource type="SphereMesh" id=9]
-material = SubResource( 8 )
+[sub_resource type="SphereMesh" id=10]
+material = SubResource( 9 )
 radius = 0.063
 height = 0.125
 
@@ -161,7 +161,7 @@ script = SubResource( 3 )
 
 [node name="CameraPivot" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 0.5, 0.5 )
-script = SubResource( 10 )
+script = SubResource( 4 )
 
 [node name="Camera" type="Camera" parent="CameraPivot"]
 transform = Transform( 1, 0, 0, 0, 0.906308, 0.422618, 0, -0.422618, 0.906308, 0, 0.633927, 1.35946 )
@@ -181,43 +181,43 @@ custom_constants/margin_bottom = 10
 [node name="VBoxContainer" type="VBoxContainer" parent="Panel/MarginContainer"]
 margin_left = 10.0
 margin_top = 10.0
-margin_right = 285.0
+margin_right = 284.0
 margin_bottom = 172.0
 custom_constants/separation = 10
 
 [node name="StaticMem" type="Label" parent="Panel/MarginContainer/VBoxContainer"]
-margin_right = 275.0
+margin_right = 274.0
 margin_bottom = 14.0
 custom_colors/font_color = Color( 1, 0, 0, 1 )
 text = "Static Mem"
-script = SubResource( 4 )
+script = SubResource( 5 )
 
 [node name="Subdivide" type="Button" parent="Panel/MarginContainer/VBoxContainer"]
 margin_top = 24.0
-margin_right = 275.0
+margin_right = 274.0
 margin_bottom = 44.0
 text = "Subdivide"
-script = SubResource( 5 )
+script = SubResource( 6 )
 cell_path = NodePath("../../../../Cell")
 
 [node name="Undivide" type="Button" parent="Panel/MarginContainer/VBoxContainer"]
 margin_top = 54.0
-margin_right = 275.0
+margin_right = 274.0
 margin_bottom = 74.0
 text = "Undivide"
-script = SubResource( 6 )
+script = SubResource( 7 )
 cell_path = NodePath("../../../../Cell")
 
 [node name="CheckButton" type="CheckButton" parent="Panel/MarginContainer/VBoxContainer"]
 margin_top = 84.0
-margin_right = 275.0
+margin_right = 274.0
 margin_bottom = 124.0
 text = "Use 3D Cursor"
-script = SubResource( 7 )
+script = SubResource( 8 )
 
 [node name="MeshInstance" type="MeshInstance" parent="Panel/MarginContainer/VBoxContainer/CheckButton"]
 visible = false
-mesh = SubResource( 9 )
+mesh = SubResource( 10 )
 material/0 = null
 
 [node name="3DCursor" type="HBoxContainer" parent="Panel/MarginContainer/VBoxContainer"]

@@ -25,6 +25,11 @@ func can_collapse():
 	
 	for i in range (0, 7):
 		collapse = collapse and vertices[i].can_collapse(vertices[i+1]);
+		if is_nan(vertices[i].isovalue):
+			print("nan found!! at vertex %s" % vertices[i].position);
+		elif is_inf(vertices[i].isovalue):
+			print("inf found!! at vertex %s" % vertices[i].position);
+		
 		if not collapse:
 			break;
 	
