@@ -16,7 +16,7 @@ const GRID_VERTS = [
 export (Vector3) var position = Vector3.ZERO;
 export (float, -1.0, 1.0) var isovalue = -1.0 setget set_isovalue, get_isovalue;
 func can_collapse(other):
-	return (self.isovalue * other.isovalue) >= 0.0; # No sign change
+	return (self.isovalue * other.isovalue) >= 0.0 or (is_nan(self.isovalue * other.isovalue)); # No sign change
 
 func set_isovalue(value):
 	isovalue = clamp(value, -1.0, 1.0);

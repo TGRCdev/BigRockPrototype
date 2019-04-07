@@ -65,12 +65,22 @@ func apply_tool_thread(userdata):
 	thread_finished = false;
 	var t = userdata.tool;
 	Terrain.cell_apply_tool(cell, t, action);
-	Terrain.try_undivide(cell, true);
+	Terrain.try_undivide(cell);
 	draw_cell();
+	var tris = Terrain.polygonise_cell(cell);
+	var st = SurfaceTool.new();
+	st.deindex();
+	st.begin(Mesh.PRIMITIVE_TRIANGLES);
+	print(\"beginning a mesh of %d vertices...\" % tris.size());
+	for vert in tris:
+		st.add_vertex(vert);
+	st.generate_normals(false);
+	$TerrainMesh.mesh = st.commit();
 	thread_finished = true;
 
 func reset():
 	Terrain.undivide_cell(cell);
+	cell.init_verts();
 	draw_cell();"
 
 [sub_resource type="GDScript" id=4]
@@ -100,7 +110,7 @@ func _ready():
 	action = $\"..\"/Cell.action;
 	
 	$Margin/VBox/Apply.connect(\"pressed\", self, \"apply_tool\");
-	$Margin/VBox/RemoveToggle.connect(\"toggled\", self, \"set_val\", [\"remove\"]);
+	$Margin/VBox/RemoveToggle.connect(\"toggled\", self, \"set_remove\");
 	$Margin/VBox/ToolPos/X.connect(\"value_changed\", self, \"set_tool_origin\", [0]);
 	$Margin/VBox/ToolPos/Y.connect(\"value_changed\", self, \"set_tool_origin\", [1]);
 	$Margin/VBox/ToolPos/Z.connect(\"value_changed\", self, \"set_tool_origin\", [2]);
@@ -109,6 +119,7 @@ func _ready():
 	$Margin/VBox/ToolSize/Z.connect(\"value_changed\", self, \"set_tool_scale\", [2]);
 	$Margin/VBox/Subdiv/SpinBox.connect(\"value_changed\", self, \"set_action_subdiv\");
 	$Margin/VBox/Reset.connect(\"pressed\", cell, \"reset\");
+	$Margin/VBox/ShowGrid.connect(\"toggled\", self, \"set_node_visible\", [$\"..\"/ImmediateGeometry]);
 
 func apply_tool():
 	cell.apply_tool(t);
@@ -120,7 +131,13 @@ func set_tool_scale(newval, index):
 	t.scale[index] = newval;
 
 func set_action_subdiv(newval):
-	action.max_subdiv_level = int(newval);"
+	action.max_subdiv_level = int(newval);
+
+func set_remove(newval):
+	action.remove = newval;
+
+func set_node_visible(newval, node):
+	node.visible = newval;"
 
 [sub_resource type="GDScript" id=8]
 script/source = "extends Label
@@ -142,6 +159,8 @@ script = SubResource( 2 )
 
 [node name="Cell" type="Node" parent="."]
 script = SubResource( 3 )
+
+[node name="TerrainMesh" type="MeshInstance" parent="Cell"]
 
 [node name="CameraPivot" type="Spatial" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 0.5, 0.5 )
@@ -177,30 +196,30 @@ custom_constants/separation = 5
 alignment = 1
 
 [node name="StaticMem" type="Label" parent="Panel/Margin/VBox"]
-margin_top = 34.0
+margin_top = 11.0
 margin_right = 330.0
-margin_bottom = 48.0
+margin_bottom = 25.0
 custom_colors/font_color = Color( 1, 0, 0, 1 )
 text = "Static Mem"
 script = SubResource( 8 )
 
 [node name="RemoveToggle" type="CheckButton" parent="Panel/Margin/VBox"]
-margin_top = 53.0
+margin_top = 30.0
 margin_right = 330.0
-margin_bottom = 93.0
+margin_bottom = 70.0
 text = "Remove"
 
 [node name="Apply" type="Button" parent="Panel/Margin/VBox"]
-margin_top = 98.0
+margin_top = 75.0
 margin_right = 330.0
-margin_bottom = 118.0
+margin_bottom = 95.0
 text = "Apply Tool"
 
 [node name="ToolPos" type="HBoxContainer" parent="Panel/Margin/VBox"]
 editor/display_folded = true
-margin_top = 123.0
+margin_top = 100.0
 margin_right = 330.0
-margin_bottom = 147.0
+margin_bottom = 124.0
 alignment = 1
 
 [node name="Label" type="Label" parent="Panel/Margin/VBox/ToolPos"]
@@ -233,9 +252,9 @@ step = 0.01
 
 [node name="ToolSize" type="HBoxContainer" parent="Panel/Margin/VBox"]
 editor/display_folded = true
-margin_top = 152.0
+margin_top = 129.0
 margin_right = 330.0
-margin_bottom = 176.0
+margin_bottom = 153.0
 alignment = 1
 
 [node name="Label" type="Label" parent="Panel/Margin/VBox/ToolSize"]
@@ -271,9 +290,9 @@ value = 1.0
 
 [node name="Subdiv" type="HBoxContainer" parent="Panel/Margin/VBox"]
 editor/display_folded = true
-margin_top = 181.0
+margin_top = 158.0
 margin_right = 330.0
-margin_bottom = 205.0
+margin_bottom = 182.0
 
 [node name="Label" type="Label" parent="Panel/Margin/VBox/Subdiv"]
 margin_top = 5.0
@@ -291,7 +310,13 @@ value = 1.0
 rounded = true
 
 [node name="Reset" type="Button" parent="Panel/Margin/VBox"]
-margin_top = 210.0
+margin_top = 187.0
 margin_right = 330.0
-margin_bottom = 230.0
+margin_bottom = 207.0
 text = "Reset Cell"
+
+[node name="ShowGrid" type="CheckButton" parent="Panel/Margin/VBox"]
+margin_top = 212.0
+margin_right = 330.0
+margin_bottom = 252.0
+text = "Show Grid"
