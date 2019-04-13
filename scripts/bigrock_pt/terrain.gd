@@ -80,17 +80,14 @@ static func try_undivide(cell):
 	if cell.is_leaf():
 		return;
 	
-	for i in range(0, 7):
-		try_undivide(cell.children[i])
+	for child in cell.children:
+		try_undivide(child)
 	
 	var collapse = true;
 	
-	for i in range(0, 7):
-		if (cell.children[i].vertices[7].position - Vector3(1,1,1)).length_squared() < 0.01:
-			breakpoint
-
-		if cell.children[i].is_leaf():
-			collapse = collapse and cell.children[i].can_collapse();
+	for child in cell.children:
+		if child.is_leaf():
+			collapse = collapse and child.can_collapse();
 			if not collapse:
 				break;
 		else:
