@@ -14,8 +14,18 @@ static func interpolate_vertices(vert1, vert2, t):
 		ret.isovalue = vert2.isovalue;
 		ret.position = vert2.position;
 	else:
+		if(vert1.material == vert2.material):
+			ret.material = vert1.material;
+		else:
+			var begin = abs(vert1.isovalue);
+			var end = -abs(vert2.isovalue);
+			var mat_t = lerp(begin, end, t);
+			if(mat_t < 0):
+				ret.material = vert2.material;
+			else:
+				ret.material = vert1.material;
 		ret.isovalue = lerp(vert1.isovalue, vert2.isovalue, t);
-		ret.position = vert1.position.linear_interpolate(vert2.position, t);
+		ret.position = lerp(vert1.position, vert2.position, t);
 	return ret;
 
 static func sample_cell(cell, pos:Vector3):
@@ -408,27 +418,42 @@ const triTable = [
 [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]];
 
 static func polygonise_cell(cell, max_subdiv : int = -1) -> PoolVector3Array:
-	var ret = Array();
+	var ret = Dictionary();
 	_polygonise_rec(cell, max_subdiv, ret);
 	return ret;
 
-static func _vert_interp(vert1, vert2) -> Vector3:
+static func _edge_vert(vert1, vert2):
+	var ret = {"position":Vector3(),"material":0,"isovalue":0.0};
 	if abs(vert1.isovalue)  < 0.00001:
-		return vert1.position;
+		ret.position = vert1.position;
+		ret.material = vert1.material;
+		ret.isovalue = vert1.isovalue;
 	elif abs(vert2.isovalue) < 0.00001:
-		return vert2.position;
+		ret.position = vert2.position;
+		ret.material = vert2.material;
+		ret.isovalue = vert2.isovalue;
 	elif abs(vert1.isovalue - vert2.isovalue) < 0.00001:
-		return vert1.position;
+		ret.position = vert1.position;
+		ret.material = vert1.material;
+		ret.isovalue = vert1.isovalue;
 	else:
 		var mu = -vert1.isovalue / (vert2.isovalue - vert1.isovalue);
-		if mu > 1.0:
-			return vert2.position;
-		elif mu < 0.0:
-			return vert1.position;
+		ret.position = lerp(vert1.position, vert2.position, mu);
+		if(vert1.isovalue > 0):
+			ret.material = vert1.material;
+			ret.isovalue = vert1.isovalue;
 		else:
-			return vert1.position.linear_interpolate(vert2.position, mu);
+			ret.material = vert2.material;
+			ret.isovalue = vert2.isovalue;
+	return ret;
 
-static func _polygonise_rec(cell, max_subdiv : int, tris):
+static func _vert_interp(vert1, vert2) -> Vector3:
+	var v1val = vert1.isovalue;
+	var v2val = vert2.isovalue;
+	var t = -v1val / (v2val - v1val);
+	return lerp(vert1.position, vert2.position, t);
+
+static func _polygonise_rec(cell, max_subdiv : int, tris : Dictionary):
 	if cell.is_leaf() or (max_subdiv != -1 and cell.subdiv_level >= max_subdiv):
 		var cubeindex = 0;
 		
@@ -447,35 +472,141 @@ static func _polygonise_rec(cell, max_subdiv : int, tris):
 		var vertlist = {};
 		
 		if (edgeTable[cubeindex] & 1) != 0:
-			vertlist[0] = _vert_interp(cell.vertices[4], cell.vertices[5]);
+			vertlist[0] = _edge_vert(cell.vertices[4], cell.vertices[5]);
 		if (edgeTable[cubeindex] & 2) != 0:
-			vertlist[1] = _vert_interp(cell.vertices[5], cell.vertices[1]);
+			vertlist[1] = _edge_vert(cell.vertices[5], cell.vertices[1]);
 		if (edgeTable[cubeindex] & 4) != 0:
-			vertlist[2] = _vert_interp(cell.vertices[1], cell.vertices[0]);
+			vertlist[2] = _edge_vert(cell.vertices[1], cell.vertices[0]);
 		if (edgeTable[cubeindex] & 8) != 0:
-			vertlist[3] = _vert_interp(cell.vertices[0], cell.vertices[4]);
+			vertlist[3] = _edge_vert(cell.vertices[0], cell.vertices[4]);
 		if (edgeTable[cubeindex] & 16) != 0:
-			vertlist[4] = _vert_interp(cell.vertices[6], cell.vertices[7]);
+			vertlist[4] = _edge_vert(cell.vertices[6], cell.vertices[7]);
 		if (edgeTable[cubeindex] & 32) != 0:
-			vertlist[5] = _vert_interp(cell.vertices[7], cell.vertices[3]);
+			vertlist[5] = _edge_vert(cell.vertices[7], cell.vertices[3]);
 		if (edgeTable[cubeindex] & 64) != 0:
-			vertlist[6] = _vert_interp(cell.vertices[3], cell.vertices[2]);
+			vertlist[6] = _edge_vert(cell.vertices[3], cell.vertices[2]);
 		if (edgeTable[cubeindex] & 128) != 0:
-			vertlist[7] = _vert_interp(cell.vertices[2], cell.vertices[6]);
+			vertlist[7] = _edge_vert(cell.vertices[2], cell.vertices[6]);
 		if (edgeTable[cubeindex] & 256) != 0:
-			vertlist[8] = _vert_interp(cell.vertices[4], cell.vertices[6]);
+			vertlist[8] = _edge_vert(cell.vertices[4], cell.vertices[6]);
 		if (edgeTable[cubeindex] & 512) != 0:
-			vertlist[9] = _vert_interp(cell.vertices[5], cell.vertices[7]);
+			vertlist[9] = _edge_vert(cell.vertices[5], cell.vertices[7]);
 		if (edgeTable[cubeindex] & 1024) != 0:
-			vertlist[10] = _vert_interp(cell.vertices[1], cell.vertices[3]);
+			vertlist[10] = _edge_vert(cell.vertices[1], cell.vertices[3]);
 		if (edgeTable[cubeindex] & 2048) != 0:
-			vertlist[11] = _vert_interp(cell.vertices[0], cell.vertices[2]);
+			vertlist[11] = _edge_vert(cell.vertices[0], cell.vertices[2]);
+		
+		var edge_midpoints = {}
+		
+		for i in vertlist.keys():
+			for j in vertlist.keys():
+				if(i == j || vertlist[i].material == vertlist[j].material || (edge_midpoints.has(min(i, j)) && edge_midpoints[min(i,j)].has(max(i,j)))):
+					continue;
+				
+				if not edge_midpoints.has(min(i,j)):
+					edge_midpoints[min(i,j)] == Dictionary();
+				
+				edge_midpoints[min(i,j)][max(i,j)] = _vert_interp(vertlist[i], vertlist[j]);
 		
 		var i = 0;
 		while triTable[cubeindex][i] != -1:
-			tris.append(vertlist[triTable[cubeindex][i  ]]);
-			tris.append(vertlist[triTable[cubeindex][i+1]]);
-			tris.append(vertlist[triTable[cubeindex][i+2]]);
+			var verts = [];
+			var edges = [];
+			verts.append(triTable[cubeindex][i]);
+			verts.append(triTable[cubeindex][i+1]);
+			verts.append(triTable[cubeindex][i+2]);
+			
+			edges.append(edge_midpoints[min(verts[0], verts[1])][max(verts[0], verts[1])]);
+			edges.append(edge_midpoints[min(verts[1], verts[2])][max(verts[1], verts[2])]);
+			edges.append(edge_midpoints[min(verts[2], verts[0])][max(verts[2], verts[0])]);
+			
+			var tri_config = 0;
+			if vertlist[verts[0]].material != vertlist[verts[1]].material:
+				tri_config |= 1;
+			if vertlist[verts[1]].material != vertlist[verts[2]].material:
+				tri_config |= 2;
+			match(tri_config):
+				0:
+					var mat = vertlist[verts[0]].material;
+					tris[mat].append(vertlist[verts[0]].position);
+					tris[mat].append(vertlist[verts[1]].position);
+					tris[mat].append(vertlist[verts[2]].position);
+				1:
+					var mat1 = vertlist[verts[0]].material;
+					var mat2 = vertlist[verts[1]].material;
+					
+					tris[mat1].append(vertlist[verts[0]].position);
+					tris[mat1].append(edges[0]);
+					tris[mat1].append(edges[2]);
+					
+					tris[mat2].append(edges[2]);
+					tris[mat2].append(edges[0]);
+					tris[mat2].append(vertlist[verts[1]].position);
+					
+					tris[mat2].append(vertlist[verts[2]].position);
+					tris[mat2].append(edges[0]);
+					tris[mat2].append(vertlist[verts[1]].position);
+				2:
+					var mat1 = vertlist[verts[0]].material;
+					var mat2 = vertlist[verts[2]].material;
+					
+					tris[mat1].append(vertlist[verts[0]].position);
+					tris[mat1].append(edges[1]);
+					tris[mat1].append(edges[2]);
+					
+					tris[mat1].append(vertlist[verts[0]].position);
+					tris[mat1].append(vertlist[verts[1]].position);
+					tris[mat1].append(edges[1]);
+					
+					tris[mat2].append(edges[0]);
+					tris[mat2].append(edges[1]);
+					tris[mat2].append(vertlist[verts[2]].position);
+				3: # SPECIAL CASE
+					if vertlist[verts[0]].material == vertlist[verts[2]].material:
+						var mat1 = vertlist[verts[0]].material;
+						var mat2 = vertlist[verts[1]].material;
+						
+						tris[mat1].append(vertlist[verts[0]].position);
+						tris[mat1].append(edges[0]);
+						tris[mat1].append(vertlist[verts[2]].position);
+						
+						tris[mat2].append(edges[0]);
+						tris[mat2].append(vertlist[verts[1]].position);
+						tris[mat2].append(edges[1]);
+						
+						tris[mat1].append(vertlist[verts[2]].position);
+						tris[mat1].append(edges[0]);
+						tris[mat1].append(edges[1]);
+					else:
+						var mat1 = vertlist[verts[0]].material;
+						var mat2 = vertlist[verts[1]].material;
+						var mat3 = vertlist[verts[2]].material;
+						
+						var true_mid = _vert_interp(_edge_vert(vertlist[verts[0]], vertlist[verts[1]]), vertlist[verts[2]]);
+						
+						tris[mat1].append(vertlist[verts[0]].position);
+						tris[mat1].append(edges[0]);
+						tris[mat1].append(edges[2]);
+						
+						tris[mat1].append(edges[2]);
+						tris[mat1].append(edges[0]);
+						tris[mat1].append(true_mid);
+						
+						tris[mat2].append(edges[0]);
+						tris[mat2].append(vertlist[verts[1]].position);
+						tris[mat2].append(edges[1]);
+						
+						tris[mat2].append(true_mid);
+						tris[mat2].append(edges[0]);
+						tris[mat2].append(edges[1]);
+						
+						tris[mat3].append(edges[2]);
+						tris[mat3].append(edges[1]);
+						tris[mat3].append(vertlist[verts[2]]);
+						
+						tris[mat3].append(edges[2]);
+						tris[mat3].append(true_mid);
+						tris[mat3].append(edges[1]);
 			i += 3;
 	else:
 		for child in cell.children:
