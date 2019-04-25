@@ -1,0 +1,279 @@
+[gd_scene load_steps=20 format=2]
+
+[ext_resource path="res://scripts/tool_instance.gd" type="Script" id=1]
+[ext_resource path="res://scripts/cell_instance.gd" type="Script" id=2]
+[ext_resource path="res://scripts/shaders/triplanar.shader" type="Shader" id=3]
+[ext_resource path="res://texture/Rock08_col.jpg" type="Texture" id=4]
+[ext_resource path="res://texture/Rock08_nrm.jpg" type="Texture" id=5]
+[ext_resource path="res://texture/Rock08_rgh.jpg" type="Texture" id=6]
+[ext_resource path="res://texture/Ground06_col.jpg" type="Texture" id=7]
+[ext_resource path="res://scenes/prefabs/FreeCamera.tscn" type="PackedScene" id=8]
+
+[sub_resource type="SphereMesh" id=1]
+radius = 0.5
+height = 1.0
+
+[sub_resource type="SpatialMaterial" id=2]
+flags_transparent = true
+flags_unshaded = true
+albedo_color = Color( 0, 0.607843, 0.74902, 0.129412 )
+
+[sub_resource type="ShaderMaterial" id=3]
+shader = ExtResource( 3 )
+shader_param/color = Color( 1, 1, 1, 1 )
+shader_param/scale = Vector2( 1, 1 )
+shader_param/albedo = ExtResource( 4 )
+shader_param/normal = ExtResource( 5 )
+shader_param/roughness = ExtResource( 6 )
+
+[sub_resource type="ShaderMaterial" id=4]
+shader = ExtResource( 3 )
+shader_param/color = Color( 1, 1, 1, 1 )
+shader_param/scale = Vector2( 1, 1 )
+shader_param/albedo = ExtResource( 7 )
+
+[sub_resource type="SpatialMaterial" id=5]
+albedo_color = Color( 1, 0.866667, 0, 1 )
+metallic = 0.76
+roughness = 0.0
+
+[sub_resource type="SpatialMaterial" id=6]
+flags_unshaded = true
+albedo_color = Color( 1, 0, 0, 1 )
+
+[sub_resource type="GDScript" id=7]
+script/source = "extends ImmediateGeometry
+
+var grid_verts = [
+	Vector3(0,0,0), Vector3(1,0,0),
+	Vector3(0,1,0), Vector3(1,1,0),
+	Vector3(0,0,1), Vector3(1,0,1),
+	Vector3(0,1,1), Vector3(1,1,1),
+]
+
+var grid_indices = [
+	[0, 1],
+	[1, 3],
+	[3, 2],
+	[2, 0],
+	[4, 5],
+	[5, 7],
+	[7, 6],
+	[6, 4],
+	[0, 4],
+	[1, 5],
+	[2, 6],
+	[3, 7]
+]
+
+onready var thread = Thread.new();
+
+var done_drawing = false;
+
+func _process(delta):
+	if thread.is_active() and done_drawing:
+		thread.wait_to_finish();
+
+func draw_cell(cell : Cell):
+	thread.start(self, \"_draw_thread\", cell);
+
+func _draw_thread(cell):
+	done_drawing = false;
+	self.clear();
+	self.begin(Mesh.PRIMITIVE_LINES);
+	_draw_rec(cell);
+	self.end();
+	done_drawing = true;
+
+func _draw_rec(cell : Cell):
+	for i in grid_indices:
+		add_vertex(cell.get_vertex(i[0]).pos);
+		add_vertex(cell.get_vertex(i[1]).pos);
+	
+	if not cell.is_leaf():
+		for i in range(0, 8):
+			_draw_rec(cell.get_child(i));
+
+func set_visibility(newval):
+	self.visible = newval;"
+
+[sub_resource type="CubeMesh" id=8]
+
+[sub_resource type="GDScript" id=9]
+script/source = "extends Panel
+
+onready var ti = $\"..\"/ToolInstance;
+onready var cell = $\"../Cell\";
+
+func _ready():
+	#$VBox/ApplyTool.connect(\"pressed\", $\"..\"/Cell, \"apply_tool\", [$\"..\"/ToolInstance.get_tool(), $\"..\"/ToolInstance.action]);
+	$VBox/Clear.connect(\"pressed\", cell, \"clear\");
+	$VBox/HBoxContainer/SpinBox.connect(\"value_changed\", self, \"_material_changed\");
+	$VBox/Subdiv/SpinBox.connect(\"value_changed\", self, \"_subdiv_changed\");
+	$VBox/ShowGrid.connect(\"toggled\", cell.get_node(\"Draw\"), \"set_visibility\");
+	#$VBox/HBoxContainer/Remove.connect(\"toggled\", ti, \"toggle_action_type\");
+
+func _input(event):
+	if Input.get_mouse_mode() != Input.MOUSE_MODE_VISIBLE:
+		if Input.is_action_just_pressed(\"toggle_mouse\"):
+			if(self.get_focus_owner()):
+				self.get_focus_owner().release_focus();
+		if Input.is_action_just_pressed(\"next_material\"):
+			$VBox/HBoxContainer/SpinBox.value += 1;
+		if Input.is_action_just_pressed(\"prev_material\"):
+			$VBox/HBoxContainer/SpinBox.value -= 1;
+		if Input.is_action_just_pressed(\"clear_terrain\"):
+			cell.clear();
+		if Input.is_action_just_pressed(\"toggle_grid\"):
+			$VBox/ShowGrid.pressed = not $VBox/ShowGrid.pressed;
+			cell.get_node(\"Draw\").set_visibility($VBox/ShowGrid.pressed);
+
+func _material_changed(newvalue):
+	ti.action.material_index = int(newvalue);
+
+func _subdiv_changed(newvalue):
+	ti.action.max_subdiv_level = int(newvalue);"
+
+[sub_resource type="GDScript" id=10]
+script/source = "extends RemoteTransform
+
+var pressed = false;
+var left_click = false;
+
+onready var ti = $\"../../ToolInstance\";
+onready var cell = $\"../../Cell\";
+
+func _input(event):
+	if event is InputEventMouseButton:
+		if Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
+			if event.button_index == BUTTON_LEFT or event.button_index == BUTTON_RIGHT:
+				pressed = event.pressed;
+				left_click = event.button_index == BUTTON_LEFT;
+			elif event.button_index == BUTTON_WHEEL_UP:
+				ti.scale += Vector3(0.05,0.05,0.05);
+			elif event.button_index == BUTTON_WHEEL_DOWN:
+				ti.scale -= Vector3(0.05,0.05,0.05);
+
+func _process(delta):
+	if pressed:
+		ti.set_action_type(Action.ACTION_TYPE_EMPLACE if left_click else Action.ACTION_TYPE_REMOVE);
+		cell.pressing = true;
+		cell.call_deferred(\"apply_tool\", ti.t, ti.action);
+	else:
+		cell.pressing = false;"
+
+[sub_resource type="GDScript" id=11]
+script/source = "extends Label
+
+func _process(delta):
+	var fps = Engine.get_frames_per_second();
+	self.text = str(\"%d Frames Per Second\" % [fps]);
+	self.add_color_override(\"font_color\", Color.red if fps < 15 else Color.orange if fps < 30 else Color.green);"
+
+[node name="Root" type="Spatial"]
+
+[node name="ToolInstance" type="MeshInstance" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.827175, 0.20649, 1.175 )
+mesh = SubResource( 1 )
+material/0 = SubResource( 2 )
+script = ExtResource( 1 )
+
+[node name="Cell" type="Node" parent="."]
+script = ExtResource( 2 )
+materials = [ SubResource( 3 ), SubResource( 4 ), SubResource( 5 ) ]
+
+[node name="Draw" type="ImmediateGeometry" parent="Cell"]
+material_override = SubResource( 6 )
+script = SubResource( 7 )
+
+[node name="Terrain" type="MeshInstance" parent="Cell"]
+mesh = SubResource( 8 )
+material/0 = SubResource( 4 )
+
+[node name="Panel" type="Panel" parent="."]
+margin_right = 272.0
+margin_bottom = 197.0
+script = SubResource( 9 )
+
+[node name="VBox" type="VBoxContainer" parent="Panel"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+size_flags_horizontal = 3
+alignment = 1
+
+[node name="HBoxContainer" type="HBoxContainer" parent="Panel/VBox"]
+margin_top = 38.0
+margin_right = 272.0
+margin_bottom = 62.0
+
+[node name="Label" type="Label" parent="Panel/VBox/HBoxContainer"]
+margin_top = 5.0
+margin_right = 52.0
+margin_bottom = 19.0
+text = "Material"
+
+[node name="SpinBox" type="SpinBox" parent="Panel/VBox/HBoxContainer"]
+margin_left = 56.0
+margin_right = 130.0
+margin_bottom = 24.0
+max_value = 2.0
+
+[node name="Subdiv" type="HBoxContainer" parent="Panel/VBox"]
+margin_top = 66.0
+margin_right = 272.0
+margin_bottom = 90.0
+
+[node name="Label" type="Label" parent="Panel/VBox/Subdiv"]
+margin_top = 5.0
+margin_right = 80.0
+margin_bottom = 19.0
+text = "Subdiv Level"
+
+[node name="SpinBox" type="SpinBox" parent="Panel/VBox/Subdiv"]
+margin_left = 84.0
+margin_right = 158.0
+margin_bottom = 24.0
+max_value = 6.0
+value = 3.0
+rounded = true
+
+[node name="ShowGrid" type="CheckButton" parent="Panel/VBox"]
+margin_top = 94.0
+margin_right = 272.0
+margin_bottom = 134.0
+pressed = true
+text = "Show Grid"
+
+[node name="Clear" type="Button" parent="Panel/VBox"]
+margin_top = 138.0
+margin_right = 272.0
+margin_bottom = 158.0
+focus_mode = 0
+text = "Clear Cell"
+
+[node name="MainCamera" parent="." instance=ExtResource( 8 )]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0.827175, 0.20649, 2.175 )
+moveSpeed = 1
+
+[node name="RemoteTransform" type="RemoteTransform" parent="MainCamera"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1 )
+remote_path = NodePath("../../ToolInstance")
+update_scale = false
+script = SubResource( 10 )
+
+[node name="Panel" type="Panel" parent="MainCamera"]
+anchor_left = 1.0
+anchor_right = 1.0
+margin_left = -153.0
+margin_bottom = 20.0
+
+[node name="FPS" type="Label" parent="MainCamera/Panel"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+size_flags_horizontal = 3
+text = "30 Frames Per Second"
+align = 2
+script = SubResource( 11 )
+
+[node name="DirectionalLight" type="DirectionalLight" parent="."]
+transform = Transform( 1, 0, 0, 0, 0.625649, 0.780105, 0, -0.780105, 0.625649, 0, 2.84488, 0 )

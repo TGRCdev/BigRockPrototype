@@ -24,71 +24,39 @@ func draw_cell(cell):
 
 func _draw_cell_rec(cell):
 	for line in lines:
-		add_vertex(cell.vertices[line[0]].position);
-		add_vertex(cell.vertices[line[1]].position);
+		add_vertex(cell.get_vertex(line[0]).pos);
+		add_vertex(cell.get_vertex(line[1]).pos);
 	
 	if not cell.is_leaf():
-		for child in cell.children:
-			_draw_cell_rec(child);"
+		for i in range(0, 8):
+			_draw_cell_rec(cell.get_child(i));"
 
 [sub_resource type="GDScript" id=3]
 script/source = "extends Node
 
-var cell;
-
-onready var thread : Thread = Thread.new();
-var thread_finished = false;
-
-var Terrain = load(\"res://scripts/bigrock_pt/terrain.gd\");
+var cell : Cell;
 
 func _ready():
-	cell = Terrain.Cell.new();
-	cell.init_verts();
+	cell = Cell.new();
 	draw_cell();
-
-func _process(delta):
-	if thread.is_active() and thread_finished:
-		thread.wait_to_finish();
 
 func draw_cell():
 	$\"..\"/ImmediateGeometry.draw_cell(cell);
 
 func subdivide():
-	thread.start(self, \"subdivide_thread\", {\"use_3d_cursor\" : $\"..\"/Panel/MarginContainer/VBoxContainer/CheckButton.pressed, \"pos\" : Vector3($\"../Panel/MarginContainer/VBoxContainer/3DCursor/X\".value, $\"../Panel/MarginContainer/VBoxContainer/3DCursor/Y\".value, $\"../Panel/MarginContainer/VBoxContainer/3DCursor/Z\".value)});
-
-func subdivide_thread(userdata):
-	thread_finished = false;
-	_subdivide_rec(cell, userdata.use_3d_cursor, userdata.pos);
+	subdivide_rec(cell);
 	draw_cell();
-	thread_finished = true;
 
-func _subdivide_rec(cell, use_3d_cursor, pos):
+func subdivide_rec(cell):
 	if cell.is_leaf():
-		Terrain.subdivide_cell(cell);
+		cell.subdivide();
 	else:
-		if use_3d_cursor:
-			_subdivide_rec(cell.children[cell.get_index_containing_pos(pos)], use_3d_cursor, pos);
-		else:
-			for child in cell.children:
-				_subdivide_rec(child, use_3d_cursor, pos);
+		for i in range(0,8):
+			subdivide_rec(cell.get_child(i));
 
 func undivide():
-	thread.start(self, \"undivide_thread\");
-
-func undivide_thread(userdata):
-	thread_finished = false;
-	_undivide_rec(cell);
-	draw_cell();
-	thread_finished = true;
-
-func _undivide_rec(cell):
-	if cell.is_leaf():
-		return;
-	if cell.children[0].is_leaf():
-		Terrain.undivide_cell(cell);
-	else:
-		for child in cell.children:
-			_undivide_rec(child);"
+	cell.undivide();
+	draw_cell();"
 
 [sub_resource type="GDScript" id=4]
 script/source = "extends Spatial

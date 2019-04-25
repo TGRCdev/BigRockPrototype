@@ -1,0 +1,14 @@
+WASD - Move Camera
+Space - Go Up
+CRTL - Go Down
+Mouse - Rotate Camera
+
+Left Click - Place Material
+Right Click - Remove Material
+Scroll Wheel - Adjust Tool Size
+(+) - Next Material
+(-) - Previous Material
+
+Q - Toggle Octree Grid
+Backspace - Clear Terrain
+TAB - Toggle Mouse
